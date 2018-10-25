@@ -35,6 +35,7 @@ extern "C" {
 #include "psmove.h"
 #include "../psmove_private.h"
 #include "opencv2/core/core_c.h"
+#include "opencv2/videoio/videoio_c.h"
 
 struct _CameraControl;
 typedef struct _CameraControl CameraControl;
