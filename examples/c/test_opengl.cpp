@@ -40,8 +40,9 @@
 #include "psmove.h"
 #include "psmove_tracker.h"
 #include "psmove_fusion.h"
+#include "../../include/psmove.h"
 
-enum {
+ enum {
     NOTHING,
     WIRE_CUBE,
     SOLID_CUBE,
@@ -249,18 +250,41 @@ Tracker::render()
         glLoadMatrixf(psmove_fusion_get_modelview_matrix(m_fusion, m_moves[i]));
 
         if (m_items[i] == WIRE_CUBE) {
+//            glColor3f(1., 0., 0.);
+//			drawWireCube(1.);
+//            glColor3f(0., 1., 0.);
+//
+//            glPushMatrix();
+//            glScalef(1., 1., 4.5);
+//            glTranslatef(0., 0., -.5);
+//			drawWireCube(1.);
+//            glPopMatrix();
+//
+//            glColor3f(0., 0., 1.);
+//			drawWireCube(3.);
+
             glColor3f(1., 0., 0.);
-			drawWireCube(1.);
-            glColor3f(0., 1., 0.);
+            glLineWidth(300.);
+            glBegin(GL_LINES);
+            glVertex3f(0.0, 0.0, 0.2);
+            glVertex3f(0, 0, 10);
+            glEnd();
 
             glPushMatrix();
-            glScalef(1., 1., 4.5);
-            glTranslatef(0., 0., -.5);
-			drawWireCube(1.);
+            glTranslatef(0., -1, 0);
+            glBegin(GL_LINES);
+            glVertex3f(0.0, 0.2, 0.0);
+            glVertex3f(0, -2.5, 0);
+            glEnd();
+            glPopMatrix();
+            glPushMatrix();
+            glTranslatef(0., 1, 0);
+            glBegin(GL_LINES);
+            glVertex3f(0.0, -0.2, 0.0);
+            glVertex3f(0, 2.5, 0);
+            glEnd();
             glPopMatrix();
 
-            glColor3f(0., 0., 1.);
-			drawWireCube(3.);
         } else if (m_items[i] == SOLID_CUBE) {
             glEnable(GL_LIGHTING);
             drawSolidCube(2.);

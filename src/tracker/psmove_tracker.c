@@ -250,7 +250,7 @@ int psmove_tracker_update_controller(PSMoveTracker* tracker, TrackedController *
  *  img  		- (in) 	the binary image to search for contours
  *  stor 		- (out) a storage that can be used to save the result of this function
  *  resContour 	- (out) points to the biggest contour found within the image
- *  resSize 	- (out)	the size of that contour in px²
+ *  resSize 	- (out)	the size of that contour in pxï¿½
  */
 void psmove_tracker_biggest_contour(IplImage* img, CvMemStorage* stor, CvSeq** resContour, float* resSize);
 
@@ -1180,7 +1180,7 @@ void psmove_tracker_update_image(PSMoveTracker *tracker) {
          * See also:
          * http://cv-kolaric.blogspot.com/2007/07/effects-of-cvflip.html
          **/
-        cvFlip(tracker->frame, NULL, 1);
+        //cvFlip(tracker->frame, NULL, 1);
     }
 #endif
 }
