@@ -55,7 +55,15 @@
 #define PSMOVE_BUFFER_SIZE 9
 
 /* Buffer size for the Bluetooth address get request */
-#define PSMOVE_BTADDR_GET_SIZE 16
+/* NOTE: On Windows, reading Feature Request 0x04 sometimes fails for ZCM2
+ *       controllers because hidapi occasionally returns a garbage buffer of
+ *       much larger size. Increasing the buffer size in the request seems to
+ *       reliably fix this. Note that this only happens for Bluetooth
+ *       connections, not USB.
+ */
+#define PSMOVE_BTADDR_GET_SIZE            16
+#define PSMOVE_WIN32_ZCM2_BTADDR_GET_SIZE 20
+#define PSMOVE_MAX_BTADDR_GET_SIZE        PSMOVE_WIN32_ZCM2_BTADDR_GET_SIZE
 
 /* Buffer size for the Bluetooth address set request */
 #define PSMOVE_BTADDR_SET_SIZE 23
@@ -528,10 +536,7 @@ psmove_connect_internal(const wchar_t *serial, const char *path, int id, unsigne
     if ((serial == NULL || wcslen(serial) == 0) && path != NULL) {
         move->handle = hid_open_path(path);
     } else {
-        move->handle = hid_open(PSMOVE_VID, PSMOVE_PID, serial);
-        if (!move->handle) {
-            move->handle = hid_open(PSMOVE_VID, PSMOVE_PS4_PID, serial);
-        }
+        move->handle = hid_open(PSMOVE_VID, pid, serial);
     }
 
 #endif
@@ -602,6 +607,7 @@ psmove_connect_internal(const wchar_t *serial, const char *path, int id, unsigne
         case Model_ZCM1:
             /* Load magnetometer calibration data */
             psmove_load_magnetometer_calibration(move);
+            break;
         case Model_ZCM2:
             /* No magnetometer on the ZCM2 */
             psmove_reset_magnetometer_calibration(move);
@@ -922,10 +928,21 @@ psmove_connect()
 int
 _psmove_read_btaddrs(PSMove *move, PSMove_Data_BTAddr *host, PSMove_Data_BTAddr *controller)
 {
-    unsigned char btg[PSMOVE_BTADDR_GET_SIZE];
+    unsigned char btg[PSMOVE_MAX_BTADDR_GET_SIZE];
+    size_t report_size = PSMOVE_BTADDR_GET_SIZE;
     int res;
 
+    assert(report_size <= sizeof(btg));
+
     psmove_return_val_if_fail(move != NULL, 0);
+
+#ifdef _WIN32
+    // fix Windows quirk for ZCM2
+    // (see definition of PSMOVE_WIN32_ZCM2_BTADDR_GET_SIZE)
+    if ((move->model == Model_ZCM2) && (move->connection_type == Conn_Bluetooth)) {
+        report_size = PSMOVE_WIN32_ZCM2_BTADDR_GET_SIZE;
+    }
+#endif
 
     if (move->type == PSMove_MOVED) {
         psmove_CRITICAL("Not implemented in MOVED mode");
@@ -933,7 +950,7 @@ _psmove_read_btaddrs(PSMove *move, PSMove_Data_BTAddr *host, PSMove_Data_BTAddr 
     }
 
     /* Get Bluetooth address */
-    memset(btg, 0, sizeof(btg));
+    memset(btg, 0, report_size);
     btg[0] = PSMove_Req_GetBTAddr;
 
     /* _WIN32 only has move->handle_addr for getting bluetooth address. */
@@ -943,7 +960,7 @@ _psmove_read_btaddrs(PSMove *move, PSMove_Data_BTAddr *host, PSMove_Data_BTAddr 
         res = hid_get_feature_report(move->handle, btg, sizeof(btg));
     }
 
-    if (res == sizeof(btg)) {
+    if (res == report_size) {
         if (controller != NULL) {
             memcpy(*controller, btg+1, 6);
         }
@@ -1350,8 +1367,18 @@ psmove_update_leds(PSMove *move)
 
     switch (move->type) {
         case PSMove_HIDAPI:
+        	// NOTE: On Linux, hid_write returns 0 for a Bluetooth-connected
+        	//       controller, but not for USB. On Windows, hid_write always
+        	//       returns the size of the longest HID report which, in this
+        	//       case, does not match the output report size. And Mac
+        	//       probably adds another behaviour altogether.
+        	//
+        	//       So instead of handling every different case here, we just
+        	//       settle for the lowest common denominator and flag write
+        	//       errors.
+
             if (hid_write(move->handle, (unsigned char*)(&(move->leds)),
-                    sizeof(move->leds)) == sizeof(move->leds)) {
+                    sizeof(move->leds)) >= 0) {
                 return Update_Success;
             } else {
                 return Update_Failed;
